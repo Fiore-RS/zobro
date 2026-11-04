@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   DndContext,
   PointerSensor,
@@ -20,6 +20,7 @@ import { Header } from '../assets/components/organisms/Header'
 import { IconBadge } from '../assets/components/atoms/IconBadge'
 import { Button } from '../assets/components/atoms/Button'
 import { Modal } from '../assets/components/atoms/Modal'
+import { MontoInput } from '../assets/components/atoms/MontoInput'
 import {
   CheckIcon,
   DotsIcon,
@@ -72,7 +73,6 @@ const FORM_VACIO: FormSobre = {
 interface FilaSobreProps {
   sobre: Sobre
   menuAbierto: boolean
-  abrirHaciaArriba: boolean
   onToggleMenu: () => void
   onCerrarMenu: () => void
   onEditar: () => void
@@ -83,7 +83,6 @@ interface FilaSobreProps {
 function FilaSobre({
   sobre,
   menuAbierto,
-  abrirHaciaArriba,
   onToggleMenu,
   onCerrarMenu,
   onEditar,
@@ -94,6 +93,60 @@ function FilaSobre({
     id: sobre.id,
   })
   const Icono = iconoDeSobre(sobre.icono)
+  const botonMenuRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [abrirHaciaArriba, setAbrirHaciaArriba] = useState(false)
+
+  // Decide hacia dónde abrir según el espacio REAL visible dentro de la
+  // lista (no según la posición del sobre): si abajo no cabe y arriba hay
+  // más espacio, se abre hacia arriba. Se recalcula al hacer scroll o al
+  // cambiar el tamaño de la ventana mientras el menú está abierto.
+  // useLayoutEffect evita que se vea un parpadeo antes de voltearse.
+  useLayoutEffect(() => {
+    if (!menuAbierto) return
+    const boton = botonMenuRef.current
+    const menu = menuRef.current
+    const contenedor = boton?.closest('.overflow-y-auto')
+    if (!boton || !menu || !contenedor) return
+
+    function calcular() {
+      const limites = contenedor!.getBoundingClientRect()
+      const b = boton!.getBoundingClientRect()
+      const alto = menu!.offsetHeight + 8
+      const espacioAbajo = limites.bottom - b.bottom
+      const espacioArriba = b.top - limites.top
+      setAbrirHaciaArriba(espacioAbajo < alto && espacioArriba > espacioAbajo)
+    }
+
+    calcular()
+    contenedor.addEventListener('scroll', calcular, { passive: true })
+    window.addEventListener('resize', calcular)
+    return () => {
+      contenedor.removeEventListener('scroll', calcular)
+      window.removeEventListener('resize', calcular)
+    }
+  }, [menuAbierto])
+
+  // Cierra el menú al tocar fuera de él (o con Escape). Se escucha en el
+  // documento en vez de poner una capa encima de la pantalla, así la lista
+  // se puede seguir desplazando con el menú abierto.
+  useEffect(() => {
+    if (!menuAbierto) return
+    function alTocar(e: PointerEvent) {
+      const t = e.target as Node
+      if (menuRef.current?.contains(t) || botonMenuRef.current?.contains(t)) return
+      onCerrarMenu()
+    }
+    function alTeclear(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCerrarMenu()
+    }
+    document.addEventListener('pointerdown', alTocar)
+    document.addEventListener('keydown', alTeclear)
+    return () => {
+      document.removeEventListener('pointerdown', alTocar)
+      document.removeEventListener('keydown', alTeclear)
+    }
+  }, [menuAbierto, onCerrarMenu])
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -105,7 +158,7 @@ function FilaSobre({
       ref={setNodeRef}
       style={style}
       className={`flex items-center gap-2.5 rounded-2xl border border-border bg-surface p-3 ${
-        isDragging ? 'relative z-20 shadow-lg' : ''
+        isDragging ? 'relative z-20 shadow-lg' : menuAbierto ? 'relative z-20' : ''
       }`}
     >
       <button
@@ -130,23 +183,19 @@ function FilaSobre({
 
       <div className="relative shrink-0">
         <button
+          ref={botonMenuRef}
           type="button"
           onClick={onToggleMenu}
           aria-label={`Opciones de ${sobre.nombre}`}
+          aria-expanded={menuAbierto}
           className="flex h-7 w-7 items-center justify-center text-ink-faint"
         >
           <DotsIcon size={15} />
         </button>
 
         {menuAbierto && (
-          <>
-            <button
-              type="button"
-              aria-label="Cerrar menú"
-              onClick={onCerrarMenu}
-              className="fixed inset-0 z-10 cursor-default"
-            />
             <div
+              ref={menuRef}
               className={`absolute right-0 z-20 flex w-36 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-lg ${
                 abrirHaciaArriba ? 'bottom-full mb-1' : 'top-full mt-1'
               }`}
@@ -175,7 +224,6 @@ function FilaSobre({
                 </button>
               )}
             </div>
-          </>
         )}
       </div>
     </div>
@@ -192,6 +240,7 @@ export function GestionSobres() {
     eliminarSobre,
     agregarSobre,
     reordenarSobres,
+    corregirSaldo,
   } = useSobresStore()
   const activos = sobres.filter((s) => !s.archivado).sort((a, b) => a.orden - b.orden)
 
@@ -246,15 +295,19 @@ export function GestionSobres() {
     }
 
     if (form.editandoId) {
-      const saldoNum = Number(form.saldo)
       actualizarSobre(form.editandoId, {
         nombre: form.nombre.trim(),
         prioridad: p,
         color: form.color,
         icono: form.icono,
         meta,
-        ...(Number.isFinite(saldoNum) ? { saldoActual: Math.round(saldoNum) } : {}),
       })
+      // El saldo no se pisa directo: si cambió, queda un movimiento de
+      // "corrección" en el historial (que además se puede deshacer).
+      const saldoNum = Number(form.saldo)
+      if (form.saldo.trim() !== '' && form.saldo !== '-' && Number.isFinite(saldoNum)) {
+        corregirSaldo(form.editandoId, saldoNum)
+      }
     } else {
       agregarSobre({
         nombre: form.nombre.trim(),
@@ -297,12 +350,11 @@ export function GestionSobres() {
             items={activos.map((s) => s.id)}
             strategy={verticalListSortingStrategy}
           >
-            {activos.map((sobre, index) => (
+            {activos.map((sobre) => (
               <FilaSobre
                 key={sobre.id}
                 sobre={sobre}
                 menuAbierto={menuAbiertoId === sobre.id}
-                abrirHaciaArriba={index >= activos.length - 2}
                 onToggleMenu={() =>
                   setMenuAbiertoId((prev) => (prev === sobre.id ? null : sobre.id))
                 }
@@ -392,12 +444,11 @@ export function GestionSobres() {
             <label className="text-[12.5px] font-semibold text-ink-soft">
               Meta de ahorro (opcional)
             </label>
-            <input
-              type="number"
-              value={form.meta}
-              onChange={(e) => setForm((f) => ({ ...f, meta: e.target.value }))}
-              placeholder="Monto objetivo, ej. 500000"
-              className="rounded-xl border border-border px-3 py-2.5 text-sm outline-none placeholder:text-ink-faint"
+            <MontoInput
+              valor={form.meta}
+              onChange={(v) => setForm((f) => ({ ...f, meta: v }))}
+              tamano="compacto"
+              placeholder="Monto objetivo, ej. 500,000"
             />
             <div className="text-[11px] text-ink-faint">
               Si defines una meta, el sobre muestra una barra de progreso hacia ese monto. Dejalo
@@ -409,16 +460,16 @@ export function GestionSobres() {
               <label className="text-[12.5px] font-semibold text-ink-soft">
                 Corregir saldo actual
               </label>
-              <input
-                type="number"
-                value={form.saldo}
-                onChange={(e) => setForm((f) => ({ ...f, saldo: e.target.value }))}
-                placeholder="0"
-                className="rounded-xl border border-border px-3 py-2.5 text-sm outline-none placeholder:text-ink-faint"
+              <MontoInput
+                valor={form.saldo}
+                onChange={(v) => setForm((f) => ({ ...f, saldo: v }))}
+                tamano="compacto"
+                permitirNegativo
               />
               <div className="text-[11px] text-ink-faint">
-                Cambia el monto directamente sin registrarlo como movimiento — úsalo para
-                corregir un error o reflejar dinero movido entre sobres.
+                Úsalo para corregir un error. El cambio queda en el historial como
+                "Corrección" (y se puede eliminar desde ahí). Para mover dinero entre
+                sobres, usá mejor "Mover entre sobres" en Inicio.
               </div>
             </div>
           )}

@@ -277,6 +277,31 @@ export function UploadIcon(props: IconProps) {
   ))
 }
 
+export function TransferIcon(props: IconProps) {
+  return base(props, (
+    <>
+      <path d="M4 8h14" />
+      <path d="M14.5 4.5L18 8l-3.5 3.5" />
+      <path d="M20 16H6" />
+      <path d="M9.5 12.5L6 16l3.5 3.5" />
+    </>
+  ))
+}
+
+export function TrashIcon(props: IconProps) {
+  return base(props, (
+    <>
+      <path d="M4.5 7h15" />
+      <path d="M9.5 7V4.5h5V7" />
+      <path d="M6.5 7l.8 12.5h9.4L17.5 7" />
+    </>
+  ))
+}
+
+export function XIcon(props: IconProps) {
+  return base(props, <path d="M6 6l12 12M18 6L6 18" />)
+}
+
 const ICONOS: Record<SobreIcono, (props: IconProps) => React.ReactElement> = {
   graduacion: GraduacionIcon,
   avion: AvionIcon,

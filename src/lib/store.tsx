@@ -1,14 +1,23 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import type { Movimiento, RespaldoSobres, Sobre, Tema } from '../types'
 import { calcularReparto, aplicarGasto } from './reparto'
-import { cargarEstado, construirRespaldo, guardarEstado } from './storage'
+import { formatColones } from './format'
+import {
+  cargarEstado,
+  construirRespaldo,
+  guardarEstado,
+  migrar,
+  pedirAlmacenamientoPersistente,
+} from './storage'
 
 interface NuevoSobreInput {
   nombre: string
@@ -16,6 +25,13 @@ interface NuevoSobreInput {
   icono: Sobre['icono']
   prioridad: number
   meta?: number
+}
+
+/** Aviso temporal (toast) con opción de deshacer un movimiento recién creado. */
+export interface Aviso {
+  id: number
+  mensaje: string
+  movimientoId?: string
 }
 
 interface SobresStoreValue {
@@ -31,8 +47,19 @@ interface SobresStoreValue {
   eliminarSobre: (id: string) => boolean
   reordenarSobres: (idsEnOrden: string[]) => void
 
-  registrarIngreso: (montoTotal: number, sobreIds: string[], nota?: string) => void
-  registrarGasto: (sobreId: string, monto: number, nota?: string) => void
+  /** Todos los registrar* devuelven el id del movimiento creado. */
+  registrarIngreso: (montoTotal: number, sobreIds: string[], nota?: string, fecha?: number) => string
+  registrarGasto: (sobreId: string, monto: number, nota?: string, fecha?: number) => string
+  registrarTransferencia: (
+    origenId: string,
+    destinoId: string,
+    monto: number,
+    nota?: string,
+    fecha?: number,
+  ) => string
+  /** Cambia el saldo de un sobre dejando un movimiento "correccion_saldo". No hace nada si el saldo no cambia. */
+  corregirSaldo: (sobreId: string, saldoNuevo: number) => void
+  /** Borra el movimiento y revierte su efecto en los saldos. */
   eliminarMovimiento: (movimientoId: string) => void
   reiniciarRegistro: () => void
 
@@ -42,19 +69,28 @@ interface SobresStoreValue {
 
   tema: Tema
   setTema: (tema: Tema) => void
+
+  aviso: Aviso | null
+  mostrarAviso: (mensaje: string, movimientoId?: string) => void
+  cerrarAviso: () => void
 }
 
 const SobresStoreContext = createContext<SobresStoreValue | null>(null)
 
 export function SobresStoreProvider({ children }: { children: ReactNode }) {
-  const [sobres, setSobres] = useState<Sobre[]>(() => cargarEstado().sobres)
-  const [movimientos, setMovimientos] = useState<Movimiento[]>(
-    () => cargarEstado().movimientos,
-  )
+  const [estadoInicial] = useState(cargarEstado)
+  const [sobres, setSobres] = useState<Sobre[]>(estadoInicial.sobres)
+  const [movimientos, setMovimientos] = useState<Movimiento[]>(estadoInicial.movimientos)
   const [ultimoRespaldo, setUltimoRespaldo] = useState<number | undefined>(
-    () => cargarEstado().configuracion.ultimoRespaldo,
+    estadoInicial.configuracion.ultimoRespaldo,
   )
-  const [tema, setTema] = useState<Tema>(() => cargarEstado().configuracion.tema ?? 'sistema')
+  const [tema, setTema] = useState<Tema>(estadoInicial.configuracion.tema ?? 'sistema')
+  const [aviso, setAviso] = useState<Aviso | null>(null)
+  const contadorAvisos = useRef(0)
+
+  useEffect(() => {
+    pedirAlmacenamientoPersistente()
+  }, [])
 
   useEffect(() => {
     guardarEstado({
@@ -84,12 +120,37 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [tema])
 
+  const mostrarAviso = useCallback((mensaje: string, movimientoId?: string) => {
+    contadorAvisos.current += 1
+    setAviso({ id: contadorAvisos.current, mensaje, movimientoId })
+  }, [])
+
+  const cerrarAviso = useCallback(() => setAviso(null), [])
+
   const sumaPrioridadesActivas = useMemo(
     () => sobres.filter((s) => !s.archivado).reduce((acc, s) => acc + s.prioridad, 0),
     [sobres],
   )
 
   const value = useMemo<SobresStoreValue>(() => {
+    /** Suma `delta` al saldo de cada sobre indicado. */
+    function aplicarDeltas(deltas: { sobreId: string; monto: number }[]) {
+      setSobres((prev) =>
+        prev.map((s) => {
+          const total = deltas
+            .filter((d) => d.sobreId === s.id)
+            .reduce((acc, d) => acc + d.monto, 0)
+          return total !== 0 ? { ...s, saldoActual: s.saldoActual + total } : s
+        }),
+      )
+    }
+
+    function agregarMovimiento(mov: Omit<Movimiento, 'id'>): string {
+      const id = crypto.randomUUID()
+      setMovimientos((prev) => [{ id, ...mov }, ...prev])
+      return id
+    }
+
     function agregarSobre(input: NuevoSobreInput) {
       setSobres((prev) => [
         ...prev,
@@ -127,64 +188,80 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
       return true
     }
 
-    function registrarIngreso(montoTotal: number, sobreIds: string[], nota?: string) {
+    function registrarIngreso(
+      montoTotal: number,
+      sobreIds: string[],
+      nota?: string,
+      fecha?: number,
+    ): string {
       const seleccionados = sobres.filter((s) => sobreIds.includes(s.id))
       const reparto = calcularReparto(montoTotal, seleccionados)
-
-      setSobres((prev) =>
-        prev.map((s) => {
-          const item = reparto.find((r) => r.sobreId === s.id)
-          return item ? { ...s, saldoActual: s.saldoActual + item.monto } : s
-        }),
-      )
-
-      setMovimientos((prev) => [
-        {
-          id: crypto.randomUUID(),
-          tipo: 'ingreso_repartido',
-          fecha: Date.now(),
-          montoTotal,
-          sobresParticipantes: reparto,
-          nota,
-        },
-        ...prev,
-      ])
+      aplicarDeltas(reparto)
+      return agregarMovimiento({
+        tipo: 'ingreso_repartido',
+        fecha: fecha ?? Date.now(),
+        montoTotal,
+        sobresParticipantes: reparto,
+        nota,
+      })
     }
 
-    function registrarGasto(sobreId: string, monto: number, nota?: string) {
+    function registrarGasto(sobreId: string, monto: number, nota?: string, fecha?: number): string {
       setSobres((prev) =>
         prev.map((s) =>
           s.id === sobreId ? { ...s, saldoActual: aplicarGasto(s.saldoActual, monto) } : s,
         ),
       )
+      return agregarMovimiento({
+        tipo: 'ajuste_manual',
+        fecha: fecha ?? Date.now(),
+        sobresParticipantes: [{ sobreId, porcentajeAplicado: 100, monto: -Math.round(monto) }],
+        nota,
+      })
+    }
 
-      setMovimientos((prev) => [
-        {
-          id: crypto.randomUUID(),
-          tipo: 'ajuste_manual',
-          fecha: Date.now(),
-          sobresParticipantes: [
-            { sobreId, porcentajeAplicado: 100, monto: -Math.round(monto) },
-          ],
-          nota,
-        },
-        ...prev,
-      ])
+    function registrarTransferencia(
+      origenId: string,
+      destinoId: string,
+      monto: number,
+      nota?: string,
+      fecha?: number,
+    ): string {
+      const m = Math.round(monto)
+      const participantes = [
+        { sobreId: origenId, porcentajeAplicado: 100, monto: -m },
+        { sobreId: destinoId, porcentajeAplicado: 100, monto: m },
+      ]
+      aplicarDeltas(participantes)
+      return agregarMovimiento({
+        tipo: 'transferencia',
+        fecha: fecha ?? Date.now(),
+        montoTotal: m,
+        sobresParticipantes: participantes,
+        nota,
+      })
+    }
+
+    function corregirSaldo(sobreId: string, saldoNuevo: number) {
+      const sobre = sobres.find((s) => s.id === sobreId)
+      if (!sobre) return
+      const diferencia = Math.round(saldoNuevo) - sobre.saldoActual
+      if (diferencia === 0) return
+      aplicarDeltas([{ sobreId, monto: diferencia }])
+      agregarMovimiento({
+        tipo: 'correccion_saldo',
+        fecha: Date.now(),
+        sobresParticipantes: [{ sobreId, porcentajeAplicado: 100, monto: diferencia }],
+        nota: `De ${formatColones(sobre.saldoActual)} a ${formatColones(saldoNuevo)}`,
+      })
     }
 
     function eliminarMovimiento(movimientoId: string) {
       const mov = movimientos.find((m) => m.id === movimientoId)
       if (!mov) return
-
-      setSobres((prev) =>
-        prev.map((s) => {
-          const participante = mov.sobresParticipantes.find((p) => p.sobreId === s.id)
-          return participante
-            ? { ...s, saldoActual: s.saldoActual - participante.monto }
-            : s
-        }),
-      )
+      aplicarDeltas(mov.sobresParticipantes.map((p) => ({ sobreId: p.sobreId, monto: -p.monto })))
       setMovimientos((prev) => prev.filter((m) => m.id !== movimientoId))
+      setAviso((a) => (a?.movimientoId === movimientoId ? null : a))
     }
 
     function reordenarSobres(idsEnOrden: string[]) {
@@ -205,6 +282,7 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
       // arrancar de cero cuando los datos actuales son de prueba, no reales.
       setSobres((prev) => prev.map((s) => ({ ...s, saldoActual: 0 })))
       setMovimientos([])
+      setAviso(null)
     }
 
     function exportarRespaldo(): RespaldoSobres {
@@ -218,10 +296,12 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
     }
 
     function importarRespaldo(data: RespaldoSobres) {
-      setSobres(data.sobres)
-      setMovimientos(data.movimientos)
+      const estado = migrar(data)
+      setSobres(estado.sobres)
+      setMovimientos(estado.movimientos)
       setUltimoRespaldo(Date.now())
-      if (data.configuracion.tema) setTema(data.configuracion.tema)
+      setAviso(null)
+      if (estado.configuracion.tema) setTema(estado.configuracion.tema)
     }
 
     return {
@@ -237,6 +317,8 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
       reordenarSobres,
       registrarIngreso,
       registrarGasto,
+      registrarTransferencia,
+      corregirSaldo,
       eliminarMovimiento,
       reiniciarRegistro,
       exportarRespaldo,
@@ -244,9 +326,20 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
       ultimoRespaldo,
       tema,
       setTema,
+      aviso,
+      mostrarAviso,
+      cerrarAviso,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sobres, movimientos, sumaPrioridadesActivas, ultimoRespaldo, tema])
+  }, [
+    sobres,
+    movimientos,
+    sumaPrioridadesActivas,
+    ultimoRespaldo,
+    tema,
+    aviso,
+    mostrarAviso,
+    cerrarAviso,
+  ])
 
   return (
     <SobresStoreContext.Provider value={value}>{children}</SobresStoreContext.Provider>

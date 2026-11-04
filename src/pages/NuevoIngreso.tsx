@@ -2,15 +2,17 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSobresStore } from '../lib/store'
 import { calcularReparto } from '../lib/reparto'
-import { formatColones, formatPorcentaje } from '../lib/format'
+import { fechaAInput, formatColones, formatPorcentaje, inputAFecha } from '../lib/format'
 import { Header } from '../assets/components/organisms/Header'
 import { SobreSelectRow } from '../assets/components/molecules/SobreSelectRow'
 import { Button } from '../assets/components/atoms/Button'
-import { CheckIcon } from '../assets/components/atoms/Icon'
+import { MontoInput } from '../assets/components/atoms/MontoInput'
+import { FechaInput } from '../assets/components/atoms/FechaInput'
+import { BarraAccion, Campo } from '../assets/components/atoms/Campo'
 
 export function NuevoIngreso() {
   const navigate = useNavigate()
-  const { sobres, registrarIngreso } = useSobresStore()
+  const { sobres, registrarIngreso, mostrarAviso } = useSobresStore()
   const activos = sobres.filter((s) => !s.archivado).sort((a, b) => a.orden - b.orden)
 
   const [monto, setMonto] = useState('')
@@ -18,6 +20,7 @@ export function NuevoIngreso() {
     () => new Set(activos.map((s) => s.id)),
   )
   const [nota, setNota] = useState('')
+  const [fecha, setFecha] = useState(() => fechaAInput(Date.now()))
 
   const montoNumero = Number(monto) || 0
 
@@ -27,6 +30,7 @@ export function NuevoIngreso() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [montoNumero, seleccionados],
   )
+  const repartoPorSobre = new Map(reparto.map((r) => [r.sobreId, r]))
   const sumaRepartida = reparto.reduce((acc, r) => acc + r.monto, 0)
 
   function toggle(id: string) {
@@ -41,9 +45,17 @@ export function NuevoIngreso() {
     })
   }
 
+  const todos = seleccionados.size === activos.length
+
   function confirmar() {
     if (montoNumero <= 0 || seleccion.length === 0) return
-    registrarIngreso(montoNumero, [...seleccionados], nota || undefined)
+    const id = registrarIngreso(
+      montoNumero,
+      seleccion.map((s) => s.id),
+      nota || undefined,
+      inputAFecha(fecha),
+    )
+    mostrarAviso(`Ingreso de ${formatColones(montoNumero)} repartido`, id)
     navigate('/')
   }
 
@@ -52,81 +64,74 @@ export function NuevoIngreso() {
   return (
     <>
       <Header titulo="Nuevo ingreso" />
-      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4 pb-5 flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <div className="text-[12.5px] text-ink-faint">¿Cuánto ingresó?</div>
-          <div className="rounded-2xl border-[1.5px] border-green bg-surface px-4.5 py-4">
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              placeholder="0"
-              className="w-full bg-transparent font-display font-semibold text-[28px] outline-none"
-            />
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 pt-4 pb-6 flex flex-col gap-6">
+        <Campo etiqueta="¿Cuánto ingresó?">
+          <MontoInput valor={monto} onChange={setMonto} borde="border-green" autoFocus />
+        </Campo>
+
+        <Campo
+          etiqueta="Repartir entre"
+          accion={
+            activos.length > 1 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setSeleccionados(todos ? new Set() : new Set(activos.map((s) => s.id)))
+                }
+                className="text-[12px] font-semibold text-green"
+              >
+                {todos ? 'Ninguno' : 'Todos'}
+              </button>
+            )
+          }
+        >
+          <div className="flex flex-col gap-2">
+            {activos.map((s) => {
+              const r = repartoPorSobre.get(s.id)
+              const conMonto = r && montoNumero > 0
+              return (
+                <SobreSelectRow
+                  key={s.id}
+                  nombre={s.nombre}
+                  prioridad={s.prioridad}
+                  seleccionado={seleccionados.has(s.id)}
+                  onToggle={() => toggle(s.id)}
+                  color="green"
+                  icono={s.icono}
+                  colorSobre={s.color}
+                  // Con monto escrito, cada fila muestra lo que le toca; si no, su prioridad.
+                  detalle={conMonto ? `+${formatColones(r.monto)}` : formatPorcentaje(s.prioridad)}
+                  subdetalle={conMonto ? `${formatPorcentaje(r.porcentajeAplicado, 1)}` : undefined}
+                />
+              )
+            })}
           </div>
-        </div>
+        </Campo>
 
-        <div className="flex flex-col gap-2.5">
-          <div className="text-[12.5px] text-ink-faint">Elegí los sobres que participan</div>
-          {activos.map((s) => (
-            <SobreSelectRow
-              key={s.id}
-              nombre={s.nombre}
-              prioridad={s.prioridad}
-              seleccionado={seleccionados.has(s.id)}
-              onToggle={() => toggle(s.id)}
-              color={s.color}
-            />
-          ))}
-        </div>
-
-        {seleccion.length > 0 && montoNumero > 0 && (
-          <div className="flex flex-col gap-2.5">
-            <div className="text-[12.5px] text-ink-faint">Vista previa del reparto</div>
-            <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
-              {reparto.map((r, i) => {
-                const sobre = seleccion.find((s) => s.id === r.sobreId)!
-                return (
-                  <div key={r.sobreId}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-[13.5px] font-semibold">{sobre.nombre}</div>
-                        <div className="text-[11px] text-ink-faint">
-                          {formatPorcentaje(r.porcentajeAplicado, 1)} de este ingreso
-                        </div>
-                      </div>
-                      <div className="text-[15px] font-semibold">{formatColones(r.monto)}</div>
-                    </div>
-                    {i < reparto.length - 1 && <div className="mt-3 h-px bg-border" />}
-                  </div>
-                )
-              })}
-              <div className="h-px bg-border" />
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-green">
-                  <CheckIcon size={15} strokeWidth={2.4} />
-                  <span className="text-[12.5px] font-semibold">Coincide con el ingreso</span>
-                </div>
-                <div className="text-base font-bold">{formatColones(sumaRepartida)}</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <div className="text-[12.5px] text-ink-faint">Nota (opcional)</div>
+        <Campo etiqueta="Nota (opcional)">
           <input
             value={nota}
             onChange={(e) => setNota(e.target.value)}
             placeholder="Ej. quincena de setiembre"
-            className="rounded-xl border border-border bg-surface px-3.5 py-3 text-sm outline-none placeholder:text-ink-faint"
+            className="rounded-xl border border-border bg-surface px-3.5 py-3 text-sm outline-none placeholder:text-ink-faint focus:border-green-mid"
           />
-        </div>
+        </Campo>
+
+        <FechaInput valor={fecha} onChange={setFecha} />
       </div>
 
-      <div className="shrink-0 border-t border-border bg-bg px-5 pb-6 pt-3.5">
+      <BarraAccion
+        resumen={
+          puedeConfirmar ? (
+            <>
+              <span className="font-semibold text-ink">{formatColones(sumaRepartida)}</span> en{' '}
+              {seleccion.length} {seleccion.length === 1 ? 'sobre' : 'sobres'} · cuadra exacto
+            </>
+          ) : seleccion.length === 0 ? (
+            'Elegí al menos un sobre'
+          ) : undefined
+        }
+      >
         <Button
           variant="solid-green"
           className="w-full disabled:opacity-40"
@@ -135,7 +140,7 @@ export function NuevoIngreso() {
         >
           Confirmar reparto
         </Button>
-      </div>
+      </BarraAccion>
     </>
   )
 }

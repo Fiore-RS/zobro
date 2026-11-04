@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { ClockIcon, SlidersIcon, SobresIcon } from '../atoms/Icon'
-import { CasaIcon } from '../atoms/Icon'
+import { CasaIcon, ClockIcon, SlidersIcon, SobresIcon } from '../atoms/Icon'
 
 const ITEMS = [
   { to: '/', label: 'Inicio', Icon: CasaIcon },
@@ -11,24 +10,30 @@ const ITEMS = [
 
 export function BottomNav() {
   return (
-    <div className="flex shrink-0 items-center justify-around border-t border-border bg-surface pb-2.5 pt-2 h-[74px]">
+    <nav className="flex h-[74px] shrink-0 items-center justify-around border-t border-border bg-surface pb-2.5 pt-2">
       {ITEMS.map(({ to, label, Icon }) => (
         <NavLink
           key={to}
           to={to}
           end={to === '/'}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 ${isActive ? 'text-green' : 'text-ink-faint'}`
+            `flex min-w-16 flex-col items-center gap-1 transition-colors ${isActive ? 'text-green' : 'text-ink-faint'}`
           }
         >
           {({ isActive }) => (
             <>
-              <Icon size={20} />
+              <span
+                className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-200 ${
+                  isActive ? 'bg-green-soft' : ''
+                }`}
+              >
+                <Icon size={19} strokeWidth={isActive ? 2.1 : 1.8} />
+              </span>
               <span className={`text-[10.5px] ${isActive ? 'font-semibold' : ''}`}>{label}</span>
             </>
           )}
         </NavLink>
       ))}
-    </div>
+    </nav>
   )
 }

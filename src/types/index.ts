@@ -41,7 +41,20 @@ export type SobreIcono =
   | 'libro'
   | 'mascota'
 
-export type TipoMovimiento = 'ingreso_repartido' | 'ajuste_manual'
+/**
+ * - ingreso_repartido: un ingreso dividido entre varios sobres.
+ * - ajuste_manual: un gasto/retiro de un solo sobre (se mantiene el nombre
+ *   original para que los respaldos viejos sigan siendo compatibles).
+ * - transferencia: dinero movido de un sobre a otro (2 participantes, uno
+ *   negativo y uno positivo; la suma siempre da 0).
+ * - correccion_saldo: corrección manual del saldo de un sobre desde
+ *   "Gestión de sobres", para que quede rastro de por qué cambió.
+ */
+export type TipoMovimiento =
+  | 'ingreso_repartido'
+  | 'ajuste_manual'
+  | 'transferencia'
+  | 'correccion_saldo'
 
 export interface MovimientoParticipante {
   sobreId: string
@@ -66,7 +79,12 @@ export interface Configuracion {
   tema?: Tema // por defecto 'sistema' si no está definido
 }
 
+/** Versión actual del formato de datos (localStorage y respaldos). */
+export const VERSION_DATOS = 2
+
 export interface RespaldoSobres {
+  /** Ausente en respaldos de la v0.1 (equivale a 1). */
+  version?: number
   sobres: Sobre[]
   movimientos: Movimiento[]
   configuracion: Configuracion

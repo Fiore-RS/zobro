@@ -20,7 +20,7 @@ export function Button({ variant = 'solid-green', icon, children, className = ''
   return (
     <button
       type="button"
-      className={`flex items-center justify-center gap-2 rounded-2xl py-3.5 px-4 font-semibold text-[15px] ${STYLES[variant]} ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-2xl py-3.5 px-4 font-semibold text-[15px] transition-[transform,opacity] duration-150 active:scale-[0.98] disabled:active:scale-100 ${STYLES[variant]} ${className}`}
       {...rest}
     >
       {icon}

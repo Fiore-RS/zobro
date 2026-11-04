@@ -5,6 +5,8 @@ import { Header } from '../assets/components/organisms/Header'
 import { DownloadIcon, UploadIcon } from '../assets/components/atoms/Icon'
 import { Modal } from '../assets/components/atoms/Modal'
 import { Button } from '../assets/components/atoms/Button'
+import { formatFecha } from '../lib/format'
+import type { RespaldoSobres } from '../types'
 
 function formatearFechaRelativa(timestamp?: number): string {
   if (!timestamp) return 'Todavía no hiciste ningún respaldo'
@@ -21,10 +23,20 @@ const OPCIONES_TEMA = [
 ] as const
 
 export function Configuracion() {
-  const { exportarRespaldo, importarRespaldo, ultimoRespaldo, reiniciarRegistro, tema, setTema } =
-    useSobresStore()
+  const {
+    sobres,
+    movimientos,
+    exportarRespaldo,
+    importarRespaldo,
+    ultimoRespaldo,
+    reiniciarRegistro,
+    tema,
+    setTema,
+  } = useSobresStore()
   const inputRef = useRef<HTMLInputElement>(null)
   const [confirmarReinicioAbierto, setConfirmarReinicioAbierto] = useState(false)
+  const [respaldoPendiente, setRespaldoPendiente] = useState<RespaldoSobres | null>(null)
+  const [errorImportar, setErrorImportar] = useState<string | null>(null)
 
   function confirmarReinicio() {
     reiniciarRegistro()
@@ -54,16 +66,18 @@ export function Configuracion() {
       const texto = await file.text()
       const data = JSON.parse(texto)
       if (!respaldoValido(data)) {
-        alert('Ese archivo no tiene el formato de un respaldo de Sobres.')
+        setErrorImportar('Ese archivo no tiene el formato de un respaldo de Sobres.')
         return
       }
-      const confirmado = confirm(
-        'Importar este respaldo reemplaza por completo tus datos actuales. ¿Continuar?',
-      )
-      if (confirmado) importarRespaldo(data)
+      setRespaldoPendiente(data)
     } catch {
-      alert('No se pudo leer ese archivo.')
+      setErrorImportar('No se pudo leer ese archivo.')
     }
+  }
+
+  function confirmarImportar() {
+    if (respaldoPendiente) importarRespaldo(respaldoPendiente)
+    setRespaldoPendiente(null)
   }
 
   return (
@@ -124,8 +138,8 @@ export function Configuracion() {
           />
 
           <div className="px-0.5 text-[11.5px] text-ink-faint">
-            Importar reemplaza por completo tus datos actuales. Se te va a pedir confirmación
-            antes de continuar.
+            Importar reemplaza por completo tus datos actuales. Antes de continuar vas a ver
+            qué trae el archivo.
           </div>
           <div className="px-0.5 text-[11.5px] text-ink-faint">
             {formatearFechaRelativa(ultimoRespaldo)}
@@ -162,7 +176,7 @@ export function Configuracion() {
               prioridades. No se conecta a tu banco ni a ninguna cuenta — todos los datos
               quedan en este dispositivo.
             </div>
-            <div className="mt-1 text-[11.5px] text-ink-faint">v0.1 &middot; MVP</div>
+            <div className="mt-1 text-[11.5px] text-ink-faint">v0.2</div>
           </div>
         </div>
       </div>
@@ -189,6 +203,50 @@ export function Configuracion() {
               Sí, reiniciar
             </Button>
           </div>
+        </Modal>
+      )}
+      {respaldoPendiente && (
+        <Modal titulo="¿Importar este respaldo?" onCerrar={() => setRespaldoPendiente(null)}>
+          <div className="flex flex-col gap-2 rounded-2xl border border-border p-3.5 text-[13px]">
+            <div className="flex justify-between">
+              <span className="text-ink-faint">Exportado el</span>
+              <span className="font-semibold">
+                {respaldoPendiente.exportadoEn ? formatFecha(respaldoPendiente.exportadoEn) : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-faint">Sobres</span>
+              <span className="font-semibold">
+                {respaldoPendiente.sobres.filter((s) => !s.archivado).length}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-faint">Movimientos</span>
+              <span className="font-semibold">{respaldoPendiente.movimientos.length}</span>
+            </div>
+          </div>
+          <div className="text-sm leading-relaxed text-ink-soft">
+            Esto reemplaza por completo tus datos actuales ({sobres.filter((s) => !s.archivado).length}{' '}
+            sobres y {movimientos.length} movimientos). Si no estás segura, exportá un
+            respaldo de lo que tenés ahora antes de importar.
+          </div>
+          <div className="flex gap-2.5">
+            <Button variant="outline-green" className="flex-1" onClick={() => setRespaldoPendiente(null)}>
+              Cancelar
+            </Button>
+            <Button variant="solid-green" className="flex-1" onClick={confirmarImportar}>
+              Importar
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {errorImportar && (
+        <Modal titulo="No se pudo importar" onCerrar={() => setErrorImportar(null)}>
+          <div className="text-sm leading-relaxed text-ink-soft">{errorImportar}</div>
+          <Button variant="solid-green" onClick={() => setErrorImportar(null)}>
+            Entendido
+          </Button>
         </Modal>
       )}
     </>
