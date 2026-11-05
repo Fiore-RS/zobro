@@ -15,8 +15,8 @@ export default defineConfig(({ command }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png', 'splash/*.png'],
       manifest: {
-        name: 'Sobres',
-        short_name: 'Sobres',
+        name: 'Zobro',
+        short_name: 'Zobro',
         description:
           'Guía visual para repartir tus ingresos por sobres, según tus propias prioridades.',
         lang: 'es',

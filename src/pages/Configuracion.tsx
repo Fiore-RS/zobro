@@ -49,7 +49,7 @@ export function Configuracion() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `sobres-respaldo-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `zobro-respaldo-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -66,7 +66,7 @@ export function Configuracion() {
       const texto = await file.text()
       const data = JSON.parse(texto)
       if (!respaldoValido(data)) {
-        setErrorImportar('Ese archivo no tiene el formato de un respaldo de Sobres.')
+        setErrorImportar('Ese archivo no tiene el formato de un respaldo de Zobro.')
         return
       }
       setRespaldoPendiente(data)
@@ -170,7 +170,7 @@ export function Configuracion() {
         <div className="flex flex-col gap-2.5">
           <div className="text-[12.5px] text-ink-faint">Acerca de</div>
           <div className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4.5">
-            <div className="font-display font-semibold text-base text-green">Sobres</div>
+            <div className="font-display font-semibold text-base text-green">Zobro</div>
             <div className="text-[13px] leading-relaxed text-ink-soft">
               Guía visual para repartir tus ingresos por sobres, según tus propias
               prioridades. No se conecta a tu banco ni a ninguna cuenta — todos los datos

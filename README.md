@@ -1,6 +1,6 @@
-# Sobres
+# Zobro
 
-App personal de presupuesto basada en el sistema de sobres del BCR. No se conecta a ningún banco ni cuenta real — es una guía visual de referencia para repartir los ingresos entre sobres según prioridades porcentuales definidas por vos.
+Zobro (antes "Sobres") es una app personal de presupuesto basada en el sistema de sobres del BCR. No se conecta a ningún banco ni cuenta real — es una guía visual de referencia para repartir los ingresos entre sobres según prioridades porcentuales definidas por vos.
 
 La lógica completa (modelo de datos, reglas de reparto, redondeo, flujos y pantallas) está documentada en [`docs/sobres-especificacion-desde-cero.md`](docs/sobres-especificacion-desde-cero.md).
 

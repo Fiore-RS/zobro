@@ -15,7 +15,7 @@ export function LogoIcono({ size = 96, className }: LogoIconoProps) {
       height={size}
       viewBox="0 0 512 512"
       role="img"
-      aria-label="Sobres"
+      aria-label="Zobro"
       className={className}
     >
       <rect width="512" height="512" rx="112" fill="#2f5a42" />
