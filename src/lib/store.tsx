@@ -110,6 +110,20 @@ export function SobresStoreProvider({ children }: { children: ReactNode }) {
     function aplicar() {
       const oscuro = tema === 'oscuro' || (tema === 'sistema' && medios.matches)
       raiz.classList.toggle('dark', oscuro)
+
+      // La barra de arriba (y la del navegador) toma el color de fondo del
+      // tema, para que se funda con la app. La etiqueta se crea acá:
+      // index.html no trae un color fijo. La barra de abajo de la app
+      // instalada en Android sale del manifest, que no declara color para que
+      // Chrome siga el modo del teléfono (ver vite.config.ts).
+      let meta = document.querySelector('meta[name="theme-color"]')
+      if (!meta) {
+        meta = document.createElement('meta')
+        meta.setAttribute('name', 'theme-color')
+        document.head.appendChild(meta)
+      }
+      const fondo = getComputedStyle(raiz).getPropertyValue('--color-bg').trim()
+      if (fondo) meta.setAttribute('content', fondo)
     }
 
     aplicar()

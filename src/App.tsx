@@ -11,6 +11,7 @@ import { Historial } from './pages/Historial'
 import { Configuracion } from './pages/Configuracion'
 import { Transferir } from './pages/Transferir'
 import { Toast } from './assets/components/organisms/Toast'
+import { PantallaCarga } from './assets/components/organisms/PantallaCarga'
 
 /**
  * Marco fijo al viewport (fixed inset-0): así el documento nunca puede
@@ -81,6 +82,7 @@ function App() {
           </Route>
         </Routes>
       </HashRouter>
+      <PantallaCarga />
     </SobresStoreProvider>
   )
 }

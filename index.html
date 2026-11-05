@@ -10,8 +10,25 @@
     />
     <title>Sobres</title>
 
-    <!-- Instalación en iOS: ícono, modo standalone y splash screens -->
+    <!-- Aplica el modo oscuro guardado antes de pintar la página, para que no
+         se vea un instante el tema claro. La misma lógica está en src/lib/store.tsx. -->
+    <script>
+      (function () {
+        try {
+          var datos = JSON.parse(localStorage.getItem('sobres:data:v1') || '{}')
+          var tema = (datos.configuracion && datos.configuracion.tema) || 'sistema'
+          var oscuro =
+            tema === 'oscuro' ||
+            (tema === 'sistema' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (oscuro) document.documentElement.classList.add('dark')
+        } catch (e) {}
+      })()
+    </script>
+
+    <!-- Instalación en iOS: ícono, modo standalone y splash screens (mismo
+         dibujo que la pantalla de carga, src/assets/components/organisms/PantallaCarga.tsx) -->
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Sobres" />

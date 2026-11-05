@@ -19,9 +19,18 @@ export default defineConfig(({ command }) => ({
         short_name: 'Sobres',
         description:
           'Guía visual para repartir tus ingresos por sobres, según tus propias prioridades.',
-        theme_color: '#2f5a42',
-        background_color: '#2f5a42',
+        lang: 'es',
         display: 'standalone',
+        orientation: 'portrait',
+        // Sin background_color ni theme_color a propósito (igual que Teleo): así
+        // Chrome en Android usa los suyos (claro u oscuro según el modo del
+        // teléfono) en la apertura y en la barra de abajo, que salen del
+        // manifest y no se pueden cambiar con código. Van en undefined y no
+        // simplemente borrados porque vite-plugin-pwa rellena los que faltan
+        // con sus valores por defecto (#ffffff y un verde #42b883); con
+        // undefined quedan fuera del manifest.
+        background_color: undefined,
+        theme_color: undefined,
         start_url: '.',
         scope: '.',
         icons: [

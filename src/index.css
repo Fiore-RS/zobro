@@ -59,6 +59,10 @@
 
   --color-border: oklch(89% 0.015 160);
 
+  /* Colores de marca fijos: no cambian en modo oscuro (pantalla de carga). */
+  --color-marca: oklch(38% 0.09 152);
+  --color-marca-2: oklch(50% 0.09 227);
+
   --font-display: "Fraunces", serif;
   --font-sans: "IBM Plex Sans", sans-serif;
 }
