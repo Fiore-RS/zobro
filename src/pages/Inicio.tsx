@@ -54,7 +54,7 @@ export function Inicio() {
         <div className="flex flex-col gap-4 px-5 pt-6 pb-4">
           <div className="flex items-center justify-between">
             <div className="font-display text-sm font-semibold tracking-[0.14em] text-green">
-              SOBRES
+              ZOBRO
             </div>
             <div className="text-[12px] text-ink-faint first-letter:uppercase">
               {new Date().toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' })}
