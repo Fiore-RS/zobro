@@ -41,7 +41,7 @@ npm run lint      # oxlint
 
 ## Despliegue
 
-El sitio se publica en GitHub Pages en `https://fiore-rs.github.io/sobres/`.
+El sitio se publica en GitHub Pages en `https://fiorers.dev/zobro/` (antes `/sobres/`, que ahora redirige acá desde el repo index).
 
 Cada push a `main` dispara el workflow en `.github/workflows/deploy.yml`, que
 instala dependencias, corre `npm run build` y publica el contenido de `dist/`.

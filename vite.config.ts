@@ -5,9 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
-  // En GitHub Pages el sitio queda en <usuario>.github.io/sobres/, así que en
+  // En GitHub Pages el sitio queda en fiorers.dev/zobro/ (el nombre del repo), así que en
   // build usamos esa subruta como base; en desarrollo seguimos en la raíz.
-  base: command === 'build' ? '/sobres/' : '/',
+  base: command === 'build' ? '/zobro/' : '/',
   plugins: [
     react(),
     tailwindcss(),
