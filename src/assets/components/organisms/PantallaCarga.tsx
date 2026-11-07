@@ -7,7 +7,8 @@ const DURACION_MS = 2000
 const SALIDA_MS = 250
 
 /**
- * Pantalla de carga al abrir la app: el ícono (sobre con billetes) pulsando sobre el degradado
+ * Pantalla de carga al abrir la app: solo el logo (sobre con billetes, sin el
+ * cuadro verde del ícono instalable, igual que Teleo y Preordi) pulsando sobre el degradado
  * verde → celeste de la marca. Se muestra encima de todo (la app ya está
  * montada debajo), y a los 2 segundos se desvanece y se quita.
  *
@@ -37,7 +38,7 @@ export function PantallaCarga() {
         fase === 'saliendo' ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      <LogoIcono size={96} className="animate-pulse" />
+      <LogoIcono fondo={false} size={128} className="animate-pulse" />
     </div>
   )
 }

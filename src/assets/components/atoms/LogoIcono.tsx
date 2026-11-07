@@ -1,24 +1,35 @@
 interface LogoIconoProps {
+  /** Ancho en px (el alto sale de la proporción del dibujo). */
   size?: number
   className?: string
+  /**
+   * Con fondo (por defecto) es el ícono instalable completo, con el cuadro
+   * verde redondeado. Sin fondo es solo el logo (sobre + billetes), recortado
+   * a su tamaño, para ponerlo sobre otro fondo como la pantalla de carga.
+   */
+  fondo?: boolean
 }
+
+/** Recorte del dibujo sin el cuadro de fondo: x 80–432, y 104–420. */
+const VIEWBOX_SOLO_LOGO = { x: 80, y: 104, w: 352, h: 316 }
 
 /**
  * Ícono de la app: un sobre abierto con tres billetes saliendo en abanico.
  * Es el mismo dibujo de public/icons/*.png y de las pantallas de arranque,
  * con colores fijos para que se vea igual en modo claro y oscuro.
  */
-export function LogoIcono({ size = 96, className }: LogoIconoProps) {
+export function LogoIcono({ size = 96, className, fondo = true }: LogoIconoProps) {
+  const v = fondo ? { x: 0, y: 0, w: 512, h: 512 } : VIEWBOX_SOLO_LOGO
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 512 512"
+      height={(size * v.h) / v.w}
+      viewBox={`${v.x} ${v.y} ${v.w} ${v.h}`}
       role="img"
       aria-label="Zobro"
       className={className}
     >
-      <rect width="512" height="512" rx="112" fill="#2f5a42" />
+      {fondo && <rect width="512" height="512" rx="112" fill="#2f5a42" />}
       {/* Solapa abierta e interior del sobre */}
       <path
         d="M104 250 L256 134 L408 250 Z"
