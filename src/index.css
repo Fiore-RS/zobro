@@ -180,7 +180,7 @@ body {
   }
 }
 
-/* Entrada suave de cada pantalla al navegar (ver App.tsx). */
+/* Entrada suave de cada pestaña, solo la primera vez que se abre en la sesión (ver lib/movimiento.ts). */
 @keyframes entrar {
   from {
     opacity: 0;
@@ -190,6 +190,42 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/*
+  Pantallas secundarias (detalle, nuevo gasto/ingreso, transferir), como en Teleo y Preordi:
+  entrar "más adentro" llega desde la derecha; volver hacia afuera llega un poco desde la izquierda.
+*/
+@keyframes subpantalla-entra {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes subpantalla-vuelve {
+  from {
+    opacity: 0.4;
+    transform: translateX(-28%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@utility animate-entrar {
+  animation: entrar 200ms ease-out;
+}
+
+@utility animate-subpantalla-entra {
+  animation: subpantalla-entra 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility animate-subpantalla-vuelve {
+  animation: subpantalla-vuelve 300ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Quien prefiera menos movimiento (ajuste del sistema) no ve animaciones. */

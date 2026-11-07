@@ -12,6 +12,7 @@ import { Configuracion } from './pages/Configuracion'
 import { Transferir } from './pages/Transferir'
 import { Toast } from './assets/components/organisms/Toast'
 import { PantallaCarga } from './assets/components/organisms/PantallaCarga'
+import { useTransicionPantalla } from './lib/movimiento'
 
 /**
  * Marco fijo al viewport (fixed inset-0): así el documento nunca puede
@@ -32,13 +33,16 @@ function AppFrame({ children }: { children: ReactNode }) {
 }
 
 /**
- * Envuelve cada pantalla con una animación corta de entrada. La `key` por
- * ruta hace que React la vuelva a montar (y a animar) en cada navegación.
+ * La `key` por ruta vuelve a montar la pantalla en cada navegación; la animación
+ * la decide useTransicionPantalla (lib/movimiento.ts), como en Teleo y Preordi:
+ * las pestañas solo se animan la primera vez y las pantallas secundarias entran
+ * y salen desde el costado.
  */
 function PantallaAnimada() {
   const { pathname } = useLocation()
+  const transicion = useTransicionPantalla()
   return (
-    <div key={pathname} className="flex min-h-0 flex-1 flex-col animate-[entrar_200ms_ease-out]">
+    <div key={pathname} className={`flex min-h-0 flex-1 flex-col ${transicion}`}>
       <Outlet />
     </div>
   )
@@ -47,7 +51,8 @@ function PantallaAnimada() {
 function LayoutConNav() {
   return (
     <AppFrame>
-      <div className="no-scrollbar flex flex-1 flex-col overflow-y-auto">
+      {/* overflow-x-hidden: mientras una pantalla entra desde el costado no aparece scroll horizontal. */}
+      <div className="no-scrollbar flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
         <PantallaAnimada />
       </div>
       <BottomNav />
